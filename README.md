@@ -30,6 +30,8 @@ An Emacs mode to write directly to a KDE Connect device (e.g. your phone) via th
 (add-to-list 'load-path "~/.emacs.d/lisp/")
 (require 'kde-connect-mode)
 
+```
+
 ---
 
 ## Configuration & Usage
