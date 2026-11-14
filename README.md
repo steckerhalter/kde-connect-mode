@@ -23,14 +23,19 @@ An Emacs mode to write directly to a KDE Connect device (e.g. your phone) via th
 
 ## Installation
 
+### Using Quelpa
+
+Install directly from GitHub via `quelpa`:
+
+    (quelpa '(kde-connect-mode :fetcher github :repo "steckerhalter/kde-connect-mode"))
+
+### Manual Installation
+
 1. Download or place `kde-connect-mode.el` into your Emacs load-path (e.g., `~/.emacs.d/lisp/`).
 2. Add the following to your `init.el` or configuration file:
 
-```elisp
-(add-to-list 'load-path "~/.emacs.d/lisp/")
-(require 'kde-connect-mode)
-
-```
+    (add-to-list 'load-path "~/.emacs.d/lisp/")
+    (require 'kde-connect-mode)
 
 ---
 
