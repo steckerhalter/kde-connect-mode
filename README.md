@@ -40,17 +40,13 @@ You can customize your target device name (as listed in KDE Connect) by setting 
 
     (setq kde-connect-device-name "Pixel 6a")
 
+If left blank the first device that is found will be used.
+
 ### Commands
 
 - **`M-x kde-connect-scratchpad`**: Opens a dedicated distraction-free buffer (`*KDE Connect D-Bus*`) with the mode active.
 - **`M-x kde-connect-mode`**: Toggles live key streaming in your current buffer.
-
-### Keybindings within the Mode
-
-| Key | Action |
-| :--- | :--- |
-| **Normal typing** | Forwards characters live to your phone via D-Bus. |
-| `C-c C-c` | Exits `kde-connect-mode` and closes the scratchpad window. |
+- **`C-c C-c`**: Exits `kde-connect-mode` and closes the scratchpad window.
 
 ---
 

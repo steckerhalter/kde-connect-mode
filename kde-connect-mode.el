@@ -19,15 +19,32 @@
   :group 'comm
   :prefix "kde-connect-")
 
-(defcustom kde-connect-device-name "Pixel 6a"
+(defcustom kde-connect-device-name ""
   "Name of the target device in KDE Connect."
   :type 'string
   :group 'kde-connect)
 
 (defun kde-connect--get-device-id ()
-  "Retrieve the D-Bus device ID for `kde-connect-device-name'."
-  (let ((output (shell-command-to-string "kdeconnect-cli -a --id-only")))
-    (string-trim (car (split-string output "\n" t)))))
+  "Retrieve the D-Bus device ID.
+If `kde-connect-device-name' is set, try to find its matching ID.
+Otherwise, or if not found, fall back to the first available device."
+  (let* ((output (shell-command-to-string "kdeconnect-cli -a"))
+         (lines (split-string output "\n" t))
+         matched-id
+         first-id)
+    (dolist (line lines)
+      ;; kdeconnect-cli -a output looks like: "- Device Name: id_string (paired and reachable)"
+      (when (string-match "- \\(.*?\\): \\([a-zA-Z0-9_]+\\) " line)
+        (let ((name (match-string 1 line))
+              (id (match-string 2 line)))
+          (unless first-id (setq first-id id))
+          (when (and kde-connect-device-name
+                     (string= name kde-connect-device-name))
+            (setq matched-id id)))))
+    ;; Return matched device, or fallback to first available, or raw --id-only output
+    (or matched-id
+        first-id
+        (string-trim (shell-command-to-string "kdeconnect-cli -a --id-only | head -n1")))))
 
 (defun kde-connect--dbus-call (key special-key)
   "Send KEY string and SPECIAL-KEY integer via D-Bus to KDE Connect."
@@ -89,11 +106,11 @@
 (defun kde-connect-scratchpad ()
   "Open a dedicated scratchpad buffer with D-Bus live typing active."
   (interactive)
-  (let ((buf (get-buffer-create "*KDE Connect D-Bus*")))
+  (let ((buf (get-buffer-create "*KDE Connect Scratchpad*")))
     (switch-to-buffer-other-window buf)
     (erase-buffer)
     (kde-connect-mode 1)
-    (message "Live D-Bus typing to %s active (C-c C-c to finish)" kde-connect-device-name)))
+    (message "Live KDE Connect typing active (C-c C-c to finish)")))
 
 (provide 'kde-connect-mode)
 
