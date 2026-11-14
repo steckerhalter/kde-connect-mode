@@ -1,21 +1,20 @@
-;;; kde-connect-mode.el --- Live stream keys and backspace via D-Bus -*- lexical-binding: t; -*-
+;;; kde-connect-mode.el --- Live stream keys and cursor movement via D-Bus -*- lexical-binding: t; -*-
 
 ;; Author: Reto Hubmann (@steckerhalter)
-;; Version: 0.2.0
+;; Version: 0.3.0
 ;; Package-Requires: ((emacs "26.1"))
 ;; Keywords: comm, convenience, hardware
 
 ;;; Commentary:
 
-;; Provides `kde-connect-mode', a minor mode that forwards keystrokes,
-;; newlines, and backspaces in real time to a paired KDE Connect device
-;; via `qdbus6` and the remote keyboard D-Bus interface, along with
-;; `kde-connect-scratchpad` for quick distraction-free typing on desktop.
+;; Provides `kde-connect-mode`, a minor mode that hooks into post-insertion
+;; and post-command actions to stream keystrokes, backspaces, and cursor
+;; movements live to a paired KDE Connect device via `qdbus6`.
 
 ;;; Code:
 
 (defgroup kde-connect nil
-  "Stream keystrokes and backspace to KDE Connect via D-Bus."
+  "Stream keystrokes and cursor movements to KDE Connect via D-Bus."
   :group 'comm
   :prefix "kde-connect-")
 
@@ -33,7 +32,6 @@ Otherwise, or if not found, fall back to the first available device."
          matched-id
          first-id)
     (dolist (line lines)
-      ;; kdeconnect-cli -a output looks like: "- Device Name: id_string (paired and reachable)"
       (when (string-match "- \\(.*?\\): \\([a-zA-Z0-9_]+\\) " line)
         (let ((name (match-string 1 line))
               (id (match-string 2 line)))
@@ -41,7 +39,6 @@ Otherwise, or if not found, fall back to the first available device."
           (when (and kde-connect-device-name
                      (string= name kde-connect-device-name))
             (setq matched-id id)))))
-    ;; Return matched device, or fallback to first available, or raw --id-only output
     (or matched-id
         first-id
         (string-trim (shell-command-to-string "kdeconnect-cli -a --id-only | head -n1")))))
@@ -66,41 +63,28 @@ Otherwise, or if not found, fall back to the first available device."
              (characterp last-command-event))
     (kde-connect--dbus-call (char-to-string last-command-event) 0)))
 
-(defun kde-connect-send-return ()
-  "Send Enter (newline) via D-Bus and insert locally."
-  (interactive)
-  (kde-connect--dbus-call "\n" 0)
-  (newline))
-
-(defun kde-connect-send-backspace ()
-  "Send Backspace keycode (specialKey = 1) via D-Bus and delete locally."
-  (interactive)
-  (kde-connect--dbus-call "" 1)
-  (delete-char -1))
-
-(defun kde-connect-send-left ()
-  "Send Left arrow key (specialKey = 4) via D-Bus and move cursor left."
-  (interactive)
-  (kde-connect--dbus-call "" 4)
-  (backward-char 1))
-
-(defun kde-connect-send-up ()
-  "Send Up arrow key (specialKey = 5) via D-Bus and move cursor up."
-  (interactive)
-  (kde-connect--dbus-call "" 5)
-  (previous-line 1))
-
-(defun kde-connect-send-right ()
-  "Send Right arrow key (specialKey = 6) via D-Bus and move cursor right."
-  (interactive)
-  (kde-connect--dbus-call "" 6)
-  (forward-char 1))
-
-(defun kde-connect-send-down ()
-  "Send Down arrow key (specialKey = 7) via D-Bus and move cursor down."
-  (interactive)
-  (kde-connect--dbus-call "" 7)
-  (next-line 1))
+(defun kde-connect--post-command ()
+  "Inspect `this-command' and stream navigation or deletion actions via D-Bus."
+  (when kde-connect-mode
+    (cond
+     ;; Newline / Return
+     ((memq this-command '(newline electric-newline-and-easily-indent))
+      (kde-connect--dbus-call "\n" 0))
+     ;; Backspace / Delete
+     ((memq this-command '(delete-backward-char backward-delete-char))
+      (kde-connect--dbus-call "" 1))
+     ;; Arrow Left (specialKey = 4)
+     ((eq this-command 'backward-char)
+      (kde-connect--dbus-call "" 4))
+     ;; Arrow Up (specialKey = 5)
+     ((eq this-command 'previous-line)
+      (kde-connect--dbus-call "" 5))
+     ;; Arrow Right (specialKey = 6)
+     ((eq this-command 'forward-char)
+      (kde-connect--dbus-call "" 6))
+     ;; Arrow Down (specialKey = 7)
+     ((eq this-command 'next-line)
+      (kde-connect--dbus-call "" 7)))))
 
 (defun kde-connect-quit ()
   "Disable `kde-connect-mode' and close window."
@@ -108,27 +92,16 @@ Otherwise, or if not found, fall back to the first available device."
   (kde-connect-mode -1)
   (quit-window))
 
-(defvar kde-connect-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "RET") #'kde-connect-send-return)
-    (define-key map (kbd "<backspace>") #'kde-connect-send-backspace)
-    (define-key map (kbd "DEL") #'kde-connect-send-backspace)
-    (define-key map (kbd "<left>") #'kde-connect-send-left)
-    (define-key map (kbd "<right>") #'kde-connect-send-right)
-    (define-key map (kbd "<up>") #'kde-connect-send-up)
-    (define-key map (kbd "<down>") #'kde-connect-send-down)
-    (define-key map (kbd "C-c C-c") #'kde-connect-quit)
-    map)
-  "Keymap for `kde-connect-mode'.")
-
 ;;;###autoload
 (define-minor-mode kde-connect-mode
-  "Minor mode that streams keystrokes and backspaces live via D-Bus."
+  "Minor mode that streams keystrokes and navigation live via D-Bus hooks."
   :lighter " KDE-DBus"
-  :keymap kde-connect-mode-map
   (if kde-connect-mode
-      (add-hook 'post-self-insert-hook #'kde-connect--on-self-insert nil t)
-    (remove-hook 'post-self-insert-hook #'kde-connect--on-self-insert t)))
+      (progn
+        (add-hook 'post-self-insert-hook #'kde-connect--on-self-insert nil t)
+        (add-hook 'post-command-hook #'kde-connect--post-command nil t))
+    (remove-hook 'post-self-insert-hook #'kde-connect--on-self-insert t)
+    (remove-hook 'post-command-hook #'kde-connect--post-command t)))
 
 ;;;###autoload
 (defun kde-connect-scratchpad ()
@@ -138,7 +111,7 @@ Otherwise, or if not found, fall back to the first available device."
     (switch-to-buffer-other-window buf)
     (erase-buffer)
     (kde-connect-mode 1)
-    (message "Live KDE Connect typing active (C-c C-c to finish)")))
+    (message "Live KDE Connect typing active (run M-x kde-connect-quit to finish)")))
 
 (provide 'kde-connect-mode)
 
