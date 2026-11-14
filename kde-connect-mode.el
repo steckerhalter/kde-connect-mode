@@ -78,6 +78,30 @@ Otherwise, or if not found, fall back to the first available device."
   (kde-connect--dbus-call "" 1)
   (delete-char -1))
 
+(defun kde-connect-send-left ()
+  "Send Left arrow key (specialKey = 4) via D-Bus and move cursor left."
+  (interactive)
+  (kde-connect--dbus-call "" 4)
+  (backward-char 1))
+
+(defun kde-connect-send-up ()
+  "Send Up arrow key (specialKey = 5) via D-Bus and move cursor up."
+  (interactive)
+  (kde-connect--dbus-call "" 5)
+  (previous-line 1))
+
+(defun kde-connect-send-right ()
+  "Send Right arrow key (specialKey = 6) via D-Bus and move cursor right."
+  (interactive)
+  (kde-connect--dbus-call "" 6)
+  (forward-char 1))
+
+(defun kde-connect-send-down ()
+  "Send Down arrow key (specialKey = 7) via D-Bus and move cursor down."
+  (interactive)
+  (kde-connect--dbus-call "" 7)
+  (next-line 1))
+
 (defun kde-connect-quit ()
   "Disable `kde-connect-mode' and close window."
   (interactive)
@@ -89,6 +113,10 @@ Otherwise, or if not found, fall back to the first available device."
     (define-key map (kbd "RET") #'kde-connect-send-return)
     (define-key map (kbd "<backspace>") #'kde-connect-send-backspace)
     (define-key map (kbd "DEL") #'kde-connect-send-backspace)
+    (define-key map (kbd "<left>") #'kde-connect-send-left)
+    (define-key map (kbd "<right>") #'kde-connect-send-right)
+    (define-key map (kbd "<up>") #'kde-connect-send-up)
+    (define-key map (kbd "<down>") #'kde-connect-send-down)
     (define-key map (kbd "C-c C-c") #'kde-connect-quit)
     map)
   "Keymap for `kde-connect-mode'.")
